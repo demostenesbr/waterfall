@@ -1,0 +1,702 @@
+// WaterfallLab - Prisma data model
+// Database: PostgreSQL
+// Architecture: NestJS Modular Monolith + Next.js Dashboard
+//
+// Important:
+// - This is a baseline schema for the current WaterfallLab scope.
+// - Sequential phase transitions and Stage Gate rules must also be enforced
+//   in NestJS application services and database transactions.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum OrganizationMemberRole {
+  OWNER
+  ADMIN
+  PROJECT_MANAGER
+  MEMBER
+  VIEWER
+}
+
+enum ProjectStatus {
+  DRAFT
+  PLANNED
+  IN_PROGRESS
+  ON_HOLD
+  COMPLETED
+  CANCELLED
+  ARCHIVED
+}
+
+enum PhaseCode {
+  REQUIREMENTS
+  ANALYSIS
+  DESIGN_ARCHITECTURE
+  IMPLEMENTATION
+  TESTING_VALIDATION
+  DEPLOYMENT
+  OPERATION_MAINTENANCE
+}
+
+enum PhaseStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  IN_REVIEW
+  APPROVED
+  REJECTED
+  BLOCKED
+  COMPLETED
+}
+
+enum StageGateStatus {
+  NOT_SUBMITTED
+  PENDING
+  APPROVED
+  REJECTED
+  REVISION_REQUIRED
+}
+
+enum DeliverableStatus {
+  PLANNED
+  IN_PROGRESS
+  SUBMITTED
+  APPROVED
+  REJECTED
+  ARCHIVED
+}
+
+enum RequirementType {
+  FUNCTIONAL
+  NON_FUNCTIONAL
+  BUSINESS_RULE
+  CONSTRAINT
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum RequirementStatus {
+  DRAFT
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+  IMPLEMENTED
+  VERIFIED
+  DEPRECATED
+}
+
+enum ArchitectureDecisionStatus {
+  PROPOSED
+  UNDER_REVIEW
+  ACCEPTED
+  REJECTED
+  SUPERSEDED
+}
+
+enum ArchitectureArtifactType {
+  UML_DIAGRAM
+  DATA_MODEL
+  API_SPECIFICATION
+  COMPONENT_DIAGRAM
+  DEPLOYMENT_DIAGRAM
+  ARCHITECTURE_DOCUMENT
+  TECHNOLOGY_REGISTER
+  OTHER
+}
+
+enum TestType {
+  UNIT
+  INTEGRATION
+  SYSTEM
+  ACCEPTANCE
+  REGRESSION
+  PERFORMANCE
+  LOAD
+  STRESS
+  USABILITY
+  SECURITY
+  SMOKE
+  OTHER
+}
+
+enum TestCaseStatus {
+  DRAFT
+  READY
+  APPROVED
+  DEPRECATED
+}
+
+enum TestExecutionStatus {
+  PASSED
+  FAILED
+  BLOCKED
+  SKIPPED
+  NOT_EXECUTED
+}
+
+enum DefectSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum DefectStatus {
+  OPEN
+  TRIAGED
+  IN_PROGRESS
+  FIXED
+  RETEST
+  CLOSED
+  REJECTED
+}
+
+enum ChangeRequestStatus {
+  SUBMITTED
+  UNDER_ANALYSIS
+  APPROVED
+  REJECTED
+  IMPLEMENTING
+  IMPLEMENTED
+  CLOSED
+}
+
+enum DeploymentEnvironment {
+  DEVELOPMENT
+  TEST
+  STAGING
+  PRODUCTION
+}
+
+enum DeploymentStatus {
+  PLANNED
+  IN_PROGRESS
+  SUCCESSFUL
+  FAILED
+  ROLLED_BACK
+}
+
+enum MaintenanceType {
+  CORRECTIVE
+  ADAPTIVE
+  PERFECTIVE
+  PREVENTIVE
+}
+
+enum MaintenanceStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+  CANCELLED
+}
+
+model Organization {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String
+  slug      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  members     OrganizationMember[]
+  projects    Project[]
+  auditEvents AuditLog[]
+
+  @@index([name])
+}
+
+model User {
+  id           String   @id @default(uuid()) @db.Uuid
+  name         String
+  email        String   @unique
+  passwordHash String
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  organizationMemberships OrganizationMember[]
+  projectMemberships      ProjectMember[]
+
+  createdProjects Project[] @relation("ProjectCreator")
+
+  createdRequirements  Requirement[] @relation("RequirementCreator")
+  assignedRequirements Requirement[] @relation("RequirementAssignee")
+
+  createdTestCases TestCase[]      @relation("TestCaseCreator")
+  testExecutions   TestExecution[] @relation("TestExecutor")
+
+  reportedDefects Defect[] @relation("DefectReporter")
+  assignedDefects Defect[] @relation("DefectAssignee")
+
+  proposedDecisions ArchitectureDecision[] @relation("DecisionProposer")
+  decidedDecisions  ArchitectureDecision[] @relation("DecisionApprover")
+
+  uploadedArtifacts ArchitectureArtifact[] @relation("ArtifactUploader")
+
+  requestedChanges ChangeRequest[] @relation("ChangeRequester")
+  reviewedChanges  ChangeRequest[] @relation("ChangeReviewer")
+
+  deployedReleases Deployment[] @relation("DeploymentExecutor")
+
+  openedMaintenanceRecords   MaintenanceRecord[] @relation("MaintenanceOpener")
+  assignedMaintenanceRecords MaintenanceRecord[] @relation("MaintenanceAssignee")
+
+  requestedStageGates StageGate[]         @relation("StageGateRequester")
+  decidedStageGates   StageGate[]         @relation("StageGateApprover")
+  stageGateDecisions  StageGateDecision[]
+
+  auditEvents AuditLog[] @relation("AuditActor")
+
+  @@index([name])
+  @@index([isActive])
+}
+
+model OrganizationMember {
+  id             String                 @id @default(uuid()) @db.Uuid
+  organizationId String                 @db.Uuid
+  userId         String                 @db.Uuid
+  role           OrganizationMemberRole @default(MEMBER)
+  createdAt      DateTime               @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
+  @@index([userId])
+}
+
+model Project {
+  id             String        @id @default(uuid()) @db.Uuid
+  organizationId String        @db.Uuid
+  code           String
+  name           String
+  description    String?       @db.Text
+  status         ProjectStatus @default(DRAFT)
+  plannedStartAt DateTime?
+  plannedEndAt   DateTime?
+  actualStartAt  DateTime?
+  actualEndAt    DateTime?
+  createdById    String        @db.Uuid
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  createdBy    User         @relation("ProjectCreator", fields: [createdById], references: [id], onDelete: Restrict)
+
+  members               ProjectMember[]
+  phases                ProjectPhase[]
+  requirements          Requirement[]
+  modules               SoftwareModule[]
+  testCases             TestCase[]
+  defects               Defect[]
+  architectureDecisions ArchitectureDecision[]
+  architectureArtifacts ArchitectureArtifact[]
+  changeRequests        ChangeRequest[]
+  deployments           Deployment[]
+  maintenanceRecords    MaintenanceRecord[]
+  auditEvents           AuditLog[]
+
+  @@unique([organizationId, code])
+  @@index([organizationId, status])
+  @@index([createdById])
+}
+
+model ProjectMember {
+  id        String   @id @default(uuid()) @db.Uuid
+  projectId String   @db.Uuid
+  userId    String   @db.Uuid
+  role      String   @default("MEMBER")
+  createdAt DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId])
+  @@index([userId])
+}
+
+model ProjectPhase {
+  id             String      @id @default(uuid()) @db.Uuid
+  projectId      String      @db.Uuid
+  code           PhaseCode
+  sequence       Int
+  name           String
+  description    String?     @db.Text
+  status         PhaseStatus @default(NOT_STARTED)
+  plannedStartAt DateTime?
+  plannedEndAt   DateTime?
+  actualStartAt  DateTime?
+  actualEndAt    DateTime?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  project      Project                @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  deliverables Deliverable[]
+  criteria     AcceptanceCriterion[]
+  stageGate    StageGate?
+  artifacts    ArchitectureArtifact[]
+
+  @@unique([projectId, code])
+  @@unique([projectId, sequence])
+  @@index([projectId, status])
+}
+
+model Deliverable {
+  id          String            @id @default(uuid()) @db.Uuid
+  phaseId     String            @db.Uuid
+  code        String
+  name        String
+  description String?           @db.Text
+  status      DeliverableStatus @default(PLANNED)
+  dueAt       DateTime?
+  submittedAt DateTime?
+  approvedAt  DateTime?
+  documentUrl String?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  phase ProjectPhase @relation(fields: [phaseId], references: [id], onDelete: Cascade)
+
+  @@unique([phaseId, code])
+  @@index([phaseId, status])
+}
+
+model AcceptanceCriterion {
+  id          String    @id @default(uuid()) @db.Uuid
+  phaseId     String    @db.Uuid
+  code        String
+  description String    @db.Text
+  isMandatory Boolean   @default(true)
+  isMet       Boolean   @default(false)
+  evidenceUrl String?
+  evaluatedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  phase ProjectPhase @relation(fields: [phaseId], references: [id], onDelete: Cascade)
+
+  @@unique([phaseId, code])
+  @@index([phaseId, isMet])
+}
+
+model StageGate {
+  id            String          @id @default(uuid()) @db.Uuid
+  phaseId       String          @unique @db.Uuid
+  status        StageGateStatus @default(NOT_SUBMITTED)
+  submittedAt   DateTime?
+  decidedAt     DateTime?
+  requestedById String?         @db.Uuid
+  decidedById   String?         @db.Uuid
+  decisionNotes String?         @db.Text
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  phase       ProjectPhase        @relation(fields: [phaseId], references: [id], onDelete: Cascade)
+  requestedBy User?               @relation("StageGateRequester", fields: [requestedById], references: [id], onDelete: SetNull)
+  decidedBy   User?               @relation("StageGateApprover", fields: [decidedById], references: [id], onDelete: SetNull)
+  decisions   StageGateDecision[]
+
+  @@index([status])
+}
+
+model StageGateDecision {
+  id          String          @id @default(uuid()) @db.Uuid
+  stageGateId String          @db.Uuid
+  actorId     String          @db.Uuid
+  status      StageGateStatus
+  comments    String?         @db.Text
+  decidedAt   DateTime        @default(now())
+
+  stageGate StageGate @relation(fields: [stageGateId], references: [id], onDelete: Cascade)
+  actor     User      @relation(fields: [actorId], references: [id], onDelete: Restrict)
+
+  @@index([stageGateId, decidedAt])
+}
+
+model Requirement {
+  id                 String            @id @default(uuid()) @db.Uuid
+  projectId          String            @db.Uuid
+  code               String
+  title              String
+  description        String            @db.Text
+  type               RequirementType
+  priority           Priority          @default(MEDIUM)
+  status             RequirementStatus @default(DRAFT)
+  rationale          String?           @db.Text
+  acceptanceCriteria String?           @db.Text
+  source             String?
+  version            Int               @default(1)
+  createdById        String            @db.Uuid
+  assignedToId       String?           @db.Uuid
+  approvedAt         DateTime?
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  project    Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy  User    @relation("RequirementCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  assignedTo User?   @relation("RequirementAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+
+  moduleLinks RequirementModule[]
+  testLinks   RequirementTestCase[]
+  changes     ChangeRequest[]
+
+  @@unique([projectId, code])
+  @@index([projectId, type, status])
+  @@index([projectId, priority])
+}
+
+model SoftwareModule {
+  id          String   @id @default(uuid()) @db.Uuid
+  projectId   String   @db.Uuid
+  code        String
+  name        String
+  description String?  @db.Text
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  project          Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  requirementLinks RequirementModule[]
+
+  @@unique([projectId, code])
+  @@index([projectId])
+}
+
+model RequirementModule {
+  requirementId String @db.Uuid
+  moduleId      String @db.Uuid
+
+  requirement Requirement    @relation(fields: [requirementId], references: [id], onDelete: Cascade)
+  module      SoftwareModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+
+  @@id([requirementId, moduleId])
+  @@index([moduleId])
+}
+
+model TestCase {
+  id             String         @id @default(uuid()) @db.Uuid
+  projectId      String         @db.Uuid
+  code           String
+  title          String
+  description    String         @db.Text
+  type           TestType
+  status         TestCaseStatus @default(DRAFT)
+  objective      String?        @db.Text
+  preconditions  String?        @db.Text
+  steps          Json?
+  expectedResult String?        @db.Text
+  createdById    String         @db.Uuid
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  project          Project               @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy        User                  @relation("TestCaseCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  executions       TestExecution[]
+  requirementLinks RequirementTestCase[]
+
+  @@unique([projectId, code])
+  @@index([projectId, type, status])
+}
+
+model RequirementTestCase {
+  requirementId String @db.Uuid
+  testCaseId    String @db.Uuid
+
+  requirement Requirement @relation(fields: [requirementId], references: [id], onDelete: Cascade)
+  testCase    TestCase    @relation(fields: [testCaseId], references: [id], onDelete: Cascade)
+
+  @@id([requirementId, testCaseId])
+  @@index([testCaseId])
+}
+
+model TestExecution {
+  id           String              @id @default(uuid()) @db.Uuid
+  testCaseId   String              @db.Uuid
+  executedById String              @db.Uuid
+  status       TestExecutionStatus @default(NOT_EXECUTED)
+  environment  String?
+  actualResult String?             @db.Text
+  evidenceUrl  String?
+  startedAt    DateTime?
+  finishedAt   DateTime?
+  createdAt    DateTime            @default(now())
+
+  testCase   TestCase @relation(fields: [testCaseId], references: [id], onDelete: Cascade)
+  executedBy User     @relation("TestExecutor", fields: [executedById], references: [id], onDelete: Restrict)
+  defects    Defect[]
+
+  @@index([testCaseId, status])
+  @@index([executedById, createdAt])
+}
+
+model Defect {
+  id               String         @id @default(uuid()) @db.Uuid
+  projectId        String         @db.Uuid
+  testExecutionId  String?        @db.Uuid
+  code             String
+  title            String
+  description      String         @db.Text
+  severity         DefectSeverity @default(MEDIUM)
+  status           DefectStatus   @default(OPEN)
+  stepsToReproduce String?        @db.Text
+  reportedById     String         @db.Uuid
+  assignedToId     String?        @db.Uuid
+  resolvedAt       DateTime?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  project       Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  testExecution TestExecution? @relation(fields: [testExecutionId], references: [id], onDelete: SetNull)
+  reportedBy    User           @relation("DefectReporter", fields: [reportedById], references: [id], onDelete: Restrict)
+  assignedTo    User?          @relation("DefectAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+
+  @@unique([projectId, code])
+  @@index([projectId, status, severity])
+}
+
+model ArchitectureDecision {
+  id           String                     @id @default(uuid()) @db.Uuid
+  projectId    String                     @db.Uuid
+  code         String
+  title        String
+  context      String                     @db.Text
+  problem      String?                    @db.Text
+  alternatives Json?
+  decision     String                     @db.Text
+  consequences String?                    @db.Text
+  status       ArchitectureDecisionStatus @default(PROPOSED)
+  proposedById String                     @db.Uuid
+  decidedById  String?                    @db.Uuid
+  decidedAt    DateTime?
+  createdAt    DateTime                   @default(now())
+  updatedAt    DateTime                   @updatedAt
+
+  project    Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  proposedBy User    @relation("DecisionProposer", fields: [proposedById], references: [id], onDelete: Restrict)
+  decidedBy  User?   @relation("DecisionApprover", fields: [decidedById], references: [id], onDelete: SetNull)
+
+  @@unique([projectId, code])
+  @@index([projectId, status])
+}
+
+model ArchitectureArtifact {
+  id           String                   @id @default(uuid()) @db.Uuid
+  projectId    String                   @db.Uuid
+  phaseId      String?                  @db.Uuid
+  type         ArchitectureArtifactType
+  name         String
+  description  String?                  @db.Text
+  version      String?
+  documentUrl  String?
+  content      Json?
+  uploadedById String                   @db.Uuid
+  createdAt    DateTime                 @default(now())
+  updatedAt    DateTime                 @updatedAt
+
+  project    Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  phase      ProjectPhase? @relation(fields: [phaseId], references: [id], onDelete: SetNull)
+  uploadedBy User          @relation("ArtifactUploader", fields: [uploadedById], references: [id], onDelete: Restrict)
+
+  @@index([projectId, type])
+  @@index([phaseId])
+}
+
+model ChangeRequest {
+  id             String              @id @default(uuid()) @db.Uuid
+  projectId      String              @db.Uuid
+  requirementId  String?             @db.Uuid
+  code           String
+  title          String
+  description    String              @db.Text
+  justification  String?             @db.Text
+  impactAnalysis String?             @db.Text
+  status         ChangeRequestStatus @default(SUBMITTED)
+  requestedById  String              @db.Uuid
+  reviewedById   String?             @db.Uuid
+  reviewedAt     DateTime?
+  implementedAt  DateTime?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  project     Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  requirement Requirement? @relation(fields: [requirementId], references: [id], onDelete: SetNull)
+  requestedBy User         @relation("ChangeRequester", fields: [requestedById], references: [id], onDelete: Restrict)
+  reviewedBy  User?        @relation("ChangeReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@unique([projectId, code])
+  @@index([projectId, status])
+}
+
+model Deployment {
+  id           String                @id @default(uuid()) @db.Uuid
+  projectId    String                @db.Uuid
+  version      String
+  environment  DeploymentEnvironment
+  status       DeploymentStatus      @default(PLANNED)
+  releaseNotes String?               @db.Text
+  deployedById String?               @db.Uuid
+  plannedAt    DateTime?
+  startedAt    DateTime?
+  completedAt  DateTime?
+  createdAt    DateTime              @default(now())
+
+  project    Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  deployedBy User?   @relation("DeploymentExecutor", fields: [deployedById], references: [id], onDelete: SetNull)
+
+  @@index([projectId, environment, status])
+}
+
+model MaintenanceRecord {
+  id           String            @id @default(uuid()) @db.Uuid
+  projectId    String            @db.Uuid
+  code         String
+  title        String
+  description  String            @db.Text
+  type         MaintenanceType
+  status       MaintenanceStatus @default(OPEN)
+  openedById   String            @db.Uuid
+  assignedToId String?           @db.Uuid
+  openedAt     DateTime          @default(now())
+  resolvedAt   DateTime?
+  closedAt     DateTime?
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  project    Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  openedBy   User    @relation("MaintenanceOpener", fields: [openedById], references: [id], onDelete: Restrict)
+  assignedTo User?   @relation("MaintenanceAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+
+  @@unique([projectId, code])
+  @@index([projectId, status, type])
+}
+
+model AuditLog {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @db.Uuid
+  projectId      String?  @db.Uuid
+  actorId        String?  @db.Uuid
+  action         String
+  entityType     String
+  entityId       String?
+  metadata       Json?
+  ipAddress      String?
+  userAgent      String?
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  project      Project?     @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  actor        User?        @relation("AuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, createdAt])
+  @@index([projectId, createdAt])
+  @@index([actorId, createdAt])
+  @@index([entityType, entityId])
+}

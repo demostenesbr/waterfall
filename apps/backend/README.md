@@ -14,9 +14,16 @@ A API usa a porta `3001` por padrão. O endpoint existente `GET /` continua
 disponível; a API versionada fica em `/api/v1`, com verificação em
 `GET /api/v1/health` e Swagger em `/api/docs`.
 
-Configure `PORT` e `CORS_ORIGIN` conforme necessário. `DATABASE_URL` está
-reservada para a futura integração com persistência; nenhum ORM ou migração
-existia no backend inspecionado e, portanto, não foi introduzido nesta etapa.
+Configure `PORT` e `CORS_ORIGIN` conforme necessário. Para executar migrações
+Prisma, configure `DATABASE_URL` no arquivo `.env` do backend usando
+`.env.example` como referência. Execute os comandos a partir de `apps/backend`:
+
+```powershell
+npx prisma migrate dev
+```
+
+O arquivo `prisma.config.ts` carrega `.env` e fornece a URL exigida pelo Prisma
+7; a URL não deve ser declarada no `schema.prisma`.
 
 ## Verificações
 
