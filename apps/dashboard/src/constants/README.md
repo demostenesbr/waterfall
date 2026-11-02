@@ -1,4 +1,4 @@
 # Constantes
 
-Valores realmente compartilhados entre telas podem ser centralizados aqui.
-Configuração sensível não deve ser adicionada a este diretório.
+Navegação (`navigation.ts`) e dados de demonstração (`portfolio.ts`,
+`activities.ts`). Não adicionar configuração sensível.

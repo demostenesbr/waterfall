@@ -1,4 +1,5 @@
 # Hooks
 
-Hooks compartilhados de interface devem ser adicionados aqui quando houver
-estado ou comportamento reutilizado que não pertença a um módulo de domínio.
+Hooks de cliente compartilhados. `useStoredState` e `useActivities` usam
+`useSyncExternalStore`, com snapshot de servidor estável para hidratar sem
+divergência.

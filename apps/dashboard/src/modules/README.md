@@ -1,5 +1,4 @@
 # Módulos de interface
 
-Os diretórios de domínio organizam futuras telas, schemas e hooks específicos.
-Regras de negócio continuam sob responsabilidade da API; módulos ainda não
-implementados não devem simular persistência no frontend.
+Cada pasta reúne a tela de um domínio (componente de cliente) consumida por uma
+rota fina em `src/app/(dashboard)`. Regras de negócio permanecem na API.

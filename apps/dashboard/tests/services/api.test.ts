@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { z } from "zod";
+import { parseHealthResponse } from "../../src/schemas/health";
+import { parseUnknown } from "../../src/schemas/parsers";
 import { ApiError, apiRequest } from "../../src/services/api/client";
 
 afterEach(() => {
@@ -15,13 +16,27 @@ describe("apiRequest", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
 
-    await expect(
-      apiRequest("health", z.object({ status: z.literal("ok") })),
-    ).resolves.toEqual({ status: "ok" });
+    await expect(apiRequest("health", parseHealthResponse)).resolves.toEqual({
+      status: "ok",
+    });
     expect(fetchMock).toHaveBeenCalledWith(
       "http://localhost:3001/api/v1/health",
       undefined,
     );
+  });
+
+  it("rejects responses that do not match the expected contract", async () => {
+    vi.stubEnv("NEXT_PUBLIC_API_URL", "http://localhost:3001/api/v1");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ status: "down" }), { status: 200 }),
+      ),
+    );
+
+    await expect(apiRequest("health", parseHealthResponse)).rejects.toMatchObject({
+      name: "SchemaError",
+    });
   });
 
   it("preserves API status and message for errors", async () => {
@@ -33,10 +48,17 @@ describe("apiRequest", () => {
       ),
     );
 
-    await expect(apiRequest("projects", z.unknown())).rejects.toMatchObject({
+    await expect(apiRequest("projects", parseUnknown)).rejects.toMatchObject({
       name: "ApiError",
       status: 403,
       message: "Acesso negado.",
     } satisfies Partial<ApiError>);
+  });
+
+  it("requires NEXT_PUBLIC_API_URL", async () => {
+    vi.stubEnv("NEXT_PUBLIC_API_URL", "");
+    await expect(apiRequest("health", parseUnknown)).rejects.toThrow(
+      "NEXT_PUBLIC_API_URL",
+    );
   });
 });

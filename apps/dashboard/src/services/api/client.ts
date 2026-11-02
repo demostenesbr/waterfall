@@ -1,4 +1,4 @@
-import type { ZodType } from "zod";
+import type { Parser } from "@/schemas/parsers";
 
 const defaultErrorMessages: Record<number, string> = {
   400: "A solicitação contém dados inválidos.",
@@ -35,7 +35,7 @@ function getErrorMessage(body: unknown, status: number): string {
 
 export async function apiRequest<T>(
   path: string,
-  schema: ZodType<T>,
+  parse: Parser<T>,
   init?: RequestInit,
 ): Promise<T> {
   const baseUrl = process.env.NEXT_PUBLIC_API_URL;
@@ -65,5 +65,5 @@ export async function apiRequest<T>(
     throw new ApiError(response.status, getErrorMessage(body, response.status));
   }
 
-  return schema.parse(body);
+  return parse(body);
 }

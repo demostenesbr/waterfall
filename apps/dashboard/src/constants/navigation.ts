@@ -1,0 +1,28 @@
+import {
+  BarChart3,
+  Blocks,
+  Boxes,
+  Bug,
+  ClipboardCheck,
+  FileBarChart,
+  FlaskConical,
+  LayoutDashboard,
+  Rocket,
+  Settings,
+  Wrench,
+} from "@/components/ui/icons";
+
+export const navigation = [
+  { label: "Dashboard", path: "/dashboard", icon: LayoutDashboard },
+  { label: "Projetos", path: "/projects", icon: Boxes },
+  { label: "Ciclo de Vida", path: "/lifecycle", icon: Blocks },
+  { label: "Requisitos", path: "/requirements", icon: ClipboardCheck },
+  { label: "Análise", path: "/analysis", icon: BarChart3 },
+  { label: "Arquitetura e Projeto", path: "/design", icon: Boxes },
+  { label: "Implementação", path: "/implementation", icon: Wrench },
+  { label: "Testes e Qualidade", path: "/testing", icon: FlaskConical },
+  { label: "Implantação", path: "/deployment", icon: Rocket },
+  { label: "Manutenção", path: "/maintenance", icon: Bug },
+  { label: "Relatórios", path: "/reports", icon: FileBarChart },
+  { label: "Configurações", path: "/settings", icon: Settings },
+] as const;
