@@ -21,6 +21,7 @@ export function Button({
     danger: "bg-danger text-white hover:opacity-90",
   };
   return createElement("button", {
+    suppressHydrationWarning: true, // browser extensions inject attributes like fdprocessedid
     ...props,
     className: `inline-flex items-center justify-center gap-2 rounded-lg px-3.5 py-2 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${variants[variant]} ${className}`,
   });
